@@ -49,11 +49,53 @@ const initializeData = async () => {
   await kv.set("categories", categories);
   await kv.set("skills", skills);
   
-  // Initialize admin user if doesn't exist
-  const adminExists = await kv.get("admin_users");
-  if (!adminExists) {
+  // Initialize admin system
+  const adminUsers = await kv.get("admin_users");
+  if (!adminUsers) {
     await kv.set("admin_users", []);
     await kv.set("admin_requests", []);
+  }
+  
+  // Create initial admin user if no admin users exist
+  const currentAdminUsers = await kv.get("admin_users") || [];
+  if (currentAdminUsers.length === 0) {
+    try {
+      console.log("Creating initial admin user...");
+      
+      // Check if user already exists in Supabase Auth
+      const { data: existingUser } = await supabase.auth.admin.getUserByEmail("admin@glu.nl");
+      
+      if (!existingUser.user) {
+        // Create user in Supabase Auth
+        const { data, error } = await supabase.auth.admin.createUser({
+          email: "admin@glu.nl",
+          password: "admin123!",
+          user_metadata: { name: "GLU Administrator" },
+          email_confirm: true // Automatically confirm since no email server is configured
+        });
+        
+        if (error) {
+          console.log("Error creating initial admin in Supabase Auth:", error);
+        } else {
+          console.log("Initial admin user created in Supabase Auth");
+        }
+      }
+      
+      // Add to admin users in KV store
+      const initialAdmin = {
+        email: "admin@glu.nl",
+        name: "GLU Administrator",
+        approved: true,
+        approvedAt: new Date().toISOString(),
+        approvedBy: "system"
+      };
+      
+      await kv.set("admin_users", [initialAdmin]);
+      console.log("Initial admin user added to admin_users");
+      
+    } catch (error) {
+      console.log("Error creating initial admin user:", error);
+    }
   }
 };
 

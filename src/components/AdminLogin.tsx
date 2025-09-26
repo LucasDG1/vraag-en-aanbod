@@ -84,7 +84,7 @@ export function AdminLogin({ onSuccess }: AdminLoginProps) {
                   </label>
                   <Input
                     type="email"
-                    placeholder="admin@glu.nl"
+                    placeholder="je-email@glu.nl"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
