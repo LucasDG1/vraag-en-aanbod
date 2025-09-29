@@ -58,27 +58,24 @@ const initializeData = async () => {
   
   // Create initial admin user if no admin users exist
   const currentAdminUsers = await kv.get("admin_users") || [];
+  console.log("Current admin users count:", currentAdminUsers.length);
+  
   if (currentAdminUsers.length === 0) {
     try {
       console.log("Creating initial admin user...");
       
-      // Check if user already exists in Supabase Auth
-      const { data: existingUser } = await supabase.auth.admin.getUserByEmail("admin@glu.nl");
+      // Always try to create the user (it will error if exists, which is fine)
+      const { data, error } = await supabase.auth.admin.createUser({
+        email: "admin@glu.nl",
+        password: "admin123!",
+        user_metadata: { name: "GLU Administrator" },
+        email_confirm: true // Automatically confirm since no email server is configured
+      });
       
-      if (!existingUser.user) {
-        // Create user in Supabase Auth
-        const { data, error } = await supabase.auth.admin.createUser({
-          email: "admin@glu.nl",
-          password: "admin123!",
-          user_metadata: { name: "GLU Administrator" },
-          email_confirm: true // Automatically confirm since no email server is configured
-        });
-        
-        if (error) {
-          console.log("Error creating initial admin in Supabase Auth:", error);
-        } else {
-          console.log("Initial admin user created in Supabase Auth");
-        }
+      if (error && !error.message.includes("already")) {
+        console.log("Error creating initial admin in Supabase Auth:", error);
+      } else {
+        console.log("Initial admin user handled in Supabase Auth");
       }
       
       // Add to admin users in KV store
@@ -91,11 +88,13 @@ const initializeData = async () => {
       };
       
       await kv.set("admin_users", [initialAdmin]);
-      console.log("Initial admin user added to admin_users");
+      console.log("Initial admin user added to admin_users KV store");
       
     } catch (error) {
       console.log("Error creating initial admin user:", error);
     }
+  } else {
+    console.log("Admin users already exist, skipping initial admin creation");
   }
 };
 
@@ -120,6 +119,162 @@ const verifyAdmin = async (accessToken: string | null) => {
 // Health check endpoint
 app.get("/make-server-42382a8b/health", (c) => {
   return c.json({ status: "ok" });
+});
+
+// Debug endpoint to check admin users (no auth required)
+app.get("/make-server-42382a8b/admin/debug", async (c) => {
+  try {
+    const adminUsers = await kv.get("admin_users") || [];
+    console.log("Debug - Admin users:", adminUsers);
+    
+    // Also check Supabase auth for the admin user
+    let authUser = null;
+    try {
+      const { data: { user }, error } = await supabase.auth.admin.getUserByEmail("admin@glu.nl");
+      if (!error && user) {
+        authUser = { id: user.id, email: user.email, created_at: user.created_at };
+      }
+    } catch (authError) {
+      console.log("Error checking auth user:", authError);
+    }
+    
+    return c.json({ 
+      adminUsers,
+      count: adminUsers.length,
+      message: "Debug info retrieved",
+      expectedAdmin: "admin@glu.nl",
+      authUser: authUser
+    });
+  } catch (error) {
+    console.log("Debug endpoint error:", error);
+    return c.json({ error: "Debug failed" }, 500);
+  }
+});
+
+// Force create admin endpoint (for testing)
+app.post("/make-server-42382a8b/admin/force-create", async (c) => {
+  try {
+    console.log("Force creating admin user...");
+    
+    // Create user in Supabase Auth
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: "admin@glu.nl",
+      password: "admin123!",
+      user_metadata: { name: "GLU Administrator" },
+      email_confirm: true
+    });
+    
+    if (error && !error.message.includes("already")) {
+      console.log("Error creating admin in Supabase Auth:", error);
+    } else {
+      console.log("Admin user created/exists in Supabase Auth");
+    }
+    
+    // Add to admin users in KV store
+    const adminUsers = await kv.get("admin_users") || [];
+    const existingAdmin = adminUsers.find((a: any) => a.email === "admin@glu.nl");
+    
+    if (!existingAdmin) {
+      const initialAdmin = {
+        email: "admin@glu.nl",
+        name: "GLU Administrator",
+        approved: true,
+        approvedAt: new Date().toISOString(),
+        approvedBy: "system"
+      };
+      
+      adminUsers.push(initialAdmin);
+      await kv.set("admin_users", adminUsers);
+      console.log("Admin user added to KV store");
+    }
+    
+    return c.json({ 
+      message: "Admin user force created",
+      adminUsers: await kv.get("admin_users")
+    });
+  } catch (error) {
+    console.log("Force create error:", error);
+    return c.json({ error: "Force create failed" }, 500);
+  }
+});
+
+// Admin login (no auth required)
+app.post("/make-server-42382a8b/admin/login", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email, password } = body;
+    console.log("=== ADMIN LOGIN DEBUG ===");
+    console.log("Login attempt for email:", email);
+    console.log("Password provided:", password ? "YES" : "NO");
+    
+    if (!email || !password) {
+      console.log("Missing email or password");
+      return c.json({ error: "Email and password are required" }, 400);
+    }
+    
+    // First check if user exists in Supabase Auth
+    try {
+      const { data: existingUser, error: getUserError } = await supabase.auth.admin.getUserByEmail(email);
+      console.log("User exists in Supabase Auth:", existingUser ? "YES" : "NO");
+      if (getUserError) {
+        console.log("getUserByEmail error:", getUserError);
+      }
+      if (existingUser) {
+        console.log("User created at:", existingUser.created_at);
+      }
+    } catch (checkError) {
+      console.log("Error checking if user exists:", checkError);
+    }
+    
+    // Try to sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password,
+    });
+    
+    if (error) {
+      console.log("Supabase auth error details:");
+      console.log("- Error message:", error.message);
+      console.log("- Error status:", error.status);
+      console.log("- Full error:", error);
+      return c.json({ 
+        error: "Invalid credentials", 
+        debug: {
+          supabaseError: error.message,
+          status: error.status
+        }
+      }, 401);
+    }
+    
+    console.log("Supabase auth successful!");
+    console.log("User ID:", data.user?.id);
+    console.log("Session exists:", data.session ? "YES" : "NO");
+    
+    // Check if user is approved admin
+    const adminUsers = await kv.get("admin_users") || [];
+    console.log("Admin users in KV store count:", adminUsers.length);
+    console.log("Admin users:", adminUsers);
+    
+    const admin = adminUsers.find((admin: any) => admin.email === email && admin.approved);
+    console.log("Found matching admin:", admin ? "YES" : "NO");
+    
+    if (!admin) {
+      console.log("Admin not found or not approved for email:", email);
+      return c.json({ error: "Admin access not approved" }, 403);
+    }
+    
+    console.log("=== ADMIN LOGIN SUCCESSFUL ===");
+    return c.json({ 
+      success: true,
+      message: "Login successful", 
+      access_token: data.session?.access_token,
+      user: admin
+    });
+  } catch (error) {
+    console.log("=== ADMIN LOGIN FAILED ===");
+    console.log("Login error:", error);
+    return c.json({ error: "Login failed", debug: error.message }, 500);
+  }
 });
 
 // Get all projects with optional filtering
@@ -235,51 +390,12 @@ app.delete("/make-server-42382a8b/projects/:id", async (c) => {
     }
     
     const projectId = c.req.param("id");
-    const existingProject = await kv.get(projectId);
-    
-    if (!existingProject) {
-      return c.json({ error: "Project not found" }, 404);
-    }
-    
     await kv.del(projectId);
+    
     return c.json({ message: "Project deleted successfully" });
   } catch (error) {
     console.log("Error deleting project:", error);
     return c.json({ error: "Failed to delete project" }, 500);
-  }
-});
-
-// Admin login
-app.post("/make-server-42382a8b/admin/login", async (c) => {
-  try {
-    const { email, password } = await c.req.json();
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) {
-      console.log("Admin login error:", error);
-      return c.json({ error: "Invalid credentials" }, 401);
-    }
-    
-    // Check if user is approved admin
-    const adminUsers = await kv.get("admin_users") || [];
-    const admin = adminUsers.find((admin: any) => admin.email === email && admin.approved);
-    
-    if (!admin) {
-      return c.json({ error: "Admin access not approved" }, 403);
-    }
-    
-    return c.json({ 
-      message: "Login successful", 
-      access_token: data.session?.access_token,
-      user: admin
-    });
-  } catch (error) {
-    console.log("Admin login error:", error);
-    return c.json({ error: "Login failed" }, 500);
   }
 });
 
@@ -405,44 +521,6 @@ app.get("/make-server-42382a8b/skills", async (c) => {
   } catch (error) {
     console.log("Error fetching skills:", error);
     return c.json({ error: "Failed to fetch skills" }, 500);
-  }
-});
-
-// Create initial admin user endpoint (for development)
-app.post("/make-server-42382a8b/admin/create-initial", async (c) => {
-  try {
-    const { email, password, name } = await c.req.json();
-    
-    // Create user in Supabase Auth
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: { name },
-      email_confirm: true
-    });
-    
-    if (error) {
-      console.log("Initial admin creation error:", error);
-      return c.json({ error: "Failed to create initial admin" }, 500);
-    }
-    
-    // Add directly to admin users
-    const adminUsers = await kv.get("admin_users") || [];
-    const admin = {
-      email,
-      name,
-      approved: true,
-      approvedAt: new Date().toISOString(),
-      approvedBy: "system"
-    };
-    
-    adminUsers.push(admin);
-    await kv.set("admin_users", adminUsers);
-    
-    return c.json({ message: "Initial admin created successfully" });
-  } catch (error) {
-    console.log("Initial admin creation error:", error);
-    return c.json({ error: "Failed to create initial admin" }, 500);
   }
 });
 

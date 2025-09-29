@@ -41,7 +41,7 @@ export function AccessCodeEntry({ onSubmit }: AccessCodeEntryProps) {
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    const value = e.target.value; // Allow all characters for now
     setCode(value);
     setError('');
   };
@@ -159,9 +159,9 @@ export function AccessCodeEntry({ onSubmit }: AccessCodeEntryProps) {
               type="text"
               value={code}
               onChange={handleCodeChange}
-              placeholder="694201"
-              className={`text-center text-lg tracking-widest ${
-                isDark ? 'bg-gray-700 border-gray-600 text-white placeholder:text-gray-500' : 'bg-white border-gray-300 placeholder:text-gray-400'
+              placeholder="Voer code in..."
+              className={`text-center text-lg tracking-widest focus:ring-2 focus:ring-orange-500 ${
+                isDark ? 'bg-gray-700 border-gray-600 text-white placeholder:text-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400'
               } ${error ? 'border-red-500' : ''}`}
               maxLength={6}
               autoComplete="off"
@@ -185,6 +185,21 @@ export function AccessCodeEntry({ onSubmit }: AccessCodeEntryProps) {
             disabled={code.length !== 6}
           >
             {t('enter')}
+          </Button>
+          
+          {/* Demo button */}
+          <Button
+            type="button"
+            onClick={() => onSubmit('694201')}
+            variant="outline"
+            className="w-full py-3 text-lg mt-3 border-2"
+            style={{ 
+              borderColor: 'rgb(108, 190, 153)', 
+              color: isDark ? 'rgb(108, 190, 153)' : 'rgb(108, 190, 153)',
+              backgroundColor: 'transparent'
+            }}
+          >
+            {language === 'nl' ? 'Demo Modus' : 'Demo Mode'}
           </Button>
           
           {/* Helpful hint */}

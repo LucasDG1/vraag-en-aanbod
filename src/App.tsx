@@ -4,7 +4,7 @@ import { AccessCodeEntry } from './components/AccessCodeEntry';
 import { Header } from './components/Header';
 import { ProjectsPage } from './components/ProjectsPage';
 import { AddProjectPage } from './components/AddProjectPage';
-import { AdminLogin } from './components/AdminLogin';
+
 import { AdminCMS } from './components/AdminCMS';
 import { AdminRequestPage } from './components/AdminRequestPage';
 import { SupabaseProvider } from './contexts/SupabaseContext';
@@ -34,12 +34,10 @@ const LanguageContext = createContext<{
 const AuthContext = createContext<{
   isAdmin: boolean;
   adminUser: any;
-  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
 }>({
   isAdmin: false,
   adminUser: null,
-  login: async () => false,
   logout: () => {}
 });
 
@@ -122,26 +120,19 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('projects');
   const [isDark, setIsDark] = useState(false);
   const [language, setLanguage] = useState<'nl' | 'en'>('nl');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminUser, setAdminUser] = useState(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(true); // Set to true for demo mode
+  const [adminUser, setAdminUser] = useState({ email: 'demo@glu.nl', name: 'Demo Admin' });
+  const [accessToken, setAccessToken] = useState<string | null>('demo-token');
 
   // Load saved preferences
   useEffect(() => {
     const savedAccess = localStorage.getItem('glu-access');
     const savedTheme = localStorage.getItem('glu-theme');
     const savedLanguage = localStorage.getItem('glu-language');
-    const savedToken = localStorage.getItem('glu-admin-token');
-    const savedUser = localStorage.getItem('glu-admin-user');
 
     if (savedAccess === 'true') setHasAccess(true);
     if (savedTheme === 'dark') setIsDark(true);
     if (savedLanguage) setLanguage(savedLanguage as 'nl' | 'en');
-    if (savedToken && savedUser) {
-      setAccessToken(savedToken);
-      setAdminUser(JSON.parse(savedUser));
-      setIsAdmin(true);
-    }
   }, []);
 
   // Apply theme
@@ -167,41 +158,9 @@ export default function App() {
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/admin/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.access_token) {
-        setAccessToken(data.access_token);
-        setAdminUser(data.user);
-        setIsAdmin(true);
-        localStorage.setItem('glu-admin-token', data.access_token);
-        localStorage.setItem('glu-admin-user', JSON.stringify(data.user));
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
-    }
-  };
-
   const logout = () => {
-    setAccessToken(null);
-    setAdminUser(null);
-    setIsAdmin(false);
+    // In demo mode, just reset to projects page
     setCurrentPage('projects');
-    localStorage.removeItem('glu-admin-token');
-    localStorage.removeItem('glu-admin-user');
   };
 
   if (!hasAccess) {
@@ -224,7 +183,7 @@ export default function App() {
     <SupabaseProvider>
       <ThemeContext.Provider value={{ isDark, toggleTheme }}>
         <LanguageContext.Provider value={{ language, toggleLanguage, t }}>
-          <AuthContext.Provider value={{ isAdmin, adminUser, login, logout }}>
+          <AuthContext.Provider value={{ isAdmin, adminUser, logout }}>
             <div className={`min-h-screen transition-colors duration-300 ${
               isDark ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
             }`}>
@@ -256,17 +215,7 @@ export default function App() {
                     </motion.div>
                   )}
                   
-                  {currentPage === 'admin-login' && !isAdmin && (
-                    <motion.div
-                      key="admin-login"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <AdminLogin onSuccess={() => setCurrentPage('admin-cms')} />
-                    </motion.div>
-                  )}
+
                   
                   {currentPage === 'admin-request' && (
                     <motion.div
