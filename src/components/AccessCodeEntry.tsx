@@ -186,11 +186,6 @@ export function AccessCodeEntry({ onSubmit }: AccessCodeEntryProps) {
           >
             {t('enter')}
           </Button>
-          
-          {/* Helpful hint */}
-          <div className={`text-center text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-            {language === 'nl' ? 'Toegangscode: 694201' : 'Access code: 694201'}
-          </div>
         </motion.form>
 
         <motion.div

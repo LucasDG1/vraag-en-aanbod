@@ -50,6 +50,9 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
           headers: { 'Authorization': `Bearer ${publicAnonKey}` }
         }
       );
+      if (!categoriesResponse.ok) {
+        console.error('AddProject: Categories response error:', await categoriesResponse.text());
+      }
       const categoriesData = await categoriesResponse.json();
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
 
@@ -60,6 +63,9 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
           headers: { 'Authorization': `Bearer ${publicAnonKey}` }
         }
       );
+      if (!skillsResponse.ok) {
+        console.error('AddProject: Skills response error:', await skillsResponse.text());
+      }
       const skillsData = await skillsResponse.json();
       setAvailableSkills(Array.isArray(skillsData) ? skillsData : []);
     } catch (error) {
@@ -99,6 +105,7 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
       // Save current user name to localStorage for ownership tracking
       localStorage.setItem('glu-current-user', formData.studentName);
       
+      console.log('AddProject: Creating project...');
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/projects`,
         {
@@ -111,11 +118,14 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
         }
       );
 
-      if (response.ok) {
-        onSuccess();
-      } else {
-        console.error('Failed to create project');
+      console.log('AddProject: Create response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('AddProject: Create response error:', errorText);
+        return;
       }
+
+      onSuccess();
     } catch (error) {
       console.error('Error creating project:', error);
     } finally {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Filter, Clock, User, Tag, Trash2, Edit, Image, Calendar } from 'lucide-react';
 import { Button } from './ui/button';
@@ -45,55 +45,7 @@ export function ProjectsPage() {
   const { isDark } = useContext(ThemeContext);
   const { t, language } = useContext(LanguageContext);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    filterProjects();
-  }, [projects, searchTerm, selectedCategory, selectedSkill, selectedUrgency]);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch projects
-      const projectsResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/projects`,
-        {
-          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
-        }
-      );
-      const projectsData = await projectsResponse.json();
-      setProjects(Array.isArray(projectsData) ? projectsData : []);
-
-      // Fetch categories
-      const categoriesResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/categories`,
-        {
-          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
-        }
-      );
-      const categoriesData = await categoriesResponse.json();
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-
-      // Fetch skills
-      const skillsResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/skills`,
-        {
-          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
-        }
-      );
-      const skillsData = await skillsResponse.json();
-      setSkills(Array.isArray(skillsData) ? skillsData : []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterProjects = () => {
+  const filterProjects = useCallback(() => {
     let filtered = [...projects];
 
     if (searchTerm) {
@@ -120,6 +72,63 @@ export function ProjectsPage() {
     }
 
     setFilteredProjects(filtered);
+  }, [projects, searchTerm, selectedCategory, selectedSkill, selectedUrgency]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    filterProjects();
+  }, [filterProjects]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch projects
+      const projectsResponse = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/projects`,
+        {
+          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+        }
+      );
+      if (!projectsResponse.ok) {
+        console.error('Projects response error:', await projectsResponse.text());
+      }
+      const projectsData = await projectsResponse.json();
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
+
+      // Fetch categories
+      const categoriesResponse = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/categories`,
+        {
+          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+        }
+      );
+      if (!categoriesResponse.ok) {
+        console.error('Categories response error:', await categoriesResponse.text());
+      }
+      const categoriesData = await categoriesResponse.json();
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+
+      // Fetch skills
+      const skillsResponse = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/skills`,
+        {
+          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+        }
+      );
+      if (!skillsResponse.ok) {
+        console.error('Skills response error:', await skillsResponse.text());
+      }
+      const skillsData = await skillsResponse.json();
+      setSkills(Array.isArray(skillsData) ? skillsData : []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteProject = async (projectToDelete: Project) => {
@@ -131,14 +140,17 @@ export function ProjectsPage() {
           headers: { 'Authorization': `Bearer ${publicAnonKey}` }
         }
       );
-
-      if (response.ok) {
-        setShowDeleteConfirm(null);
-        toast.success(t('projectDeleted'));
-        await fetchData();
-      } else {
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete response error:', errorText);
         toast.error(t('deleteError'));
+        return;
       }
+
+      setShowDeleteConfirm(null);
+      toast.success(t('projectDeleted'));
+      await fetchData();
     } catch (error) {
       console.error('Error deleting project:', error);
       toast.error(t('deleteError'));
@@ -161,15 +173,18 @@ export function ProjectsPage() {
         }
       );
 
-      if (response.ok) {
-        setEditingProject(null);
-        setEditForm({});
-        setShowSaveConfirm(false);
-        toast.success(t('projectUpdated'));
-        await fetchData();
-      } else {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Update response error:', errorText);
         toast.error(t('updateError'));
+        return;
       }
+
+      setEditingProject(null);
+      setEditForm({});
+      setShowSaveConfirm(false);
+      toast.success(t('projectUpdated'));
+      await fetchData();
     } catch (error) {
       console.error('Error updating project:', error);
       toast.error(t('updateError'));
