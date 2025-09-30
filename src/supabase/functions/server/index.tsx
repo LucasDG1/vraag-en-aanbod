@@ -277,9 +277,38 @@ app.post("/make-server-42382a8b/admin/login", async (c) => {
   }
 });
 
+// Helper function to clean up expired projects
+const cleanupExpiredProjects = async () => {
+  try {
+    const allProjects = await kv.getByPrefix("project_") || [];
+    const currentDate = new Date();
+    let deletedCount = 0;
+    
+    for (const project of allProjects) {
+      if (project.deadline) {
+        const deadlineDate = new Date(project.deadline);
+        if (deadlineDate < currentDate) {
+          await kv.del(project.id);
+          deletedCount++;
+          console.log(`Deleted expired project: ${project.title} (deadline: ${project.deadline})`);
+        }
+      }
+    }
+    
+    if (deletedCount > 0) {
+      console.log(`Cleaned up ${deletedCount} expired projects`);
+    }
+  } catch (error) {
+    console.log("Error cleaning up expired projects:", error);
+  }
+};
+
 // Get all projects with optional filtering
 app.get("/make-server-42382a8b/projects", async (c) => {
   try {
+    // Clean up expired projects before returning results
+    await cleanupExpiredProjects();
+    
     const category = c.req.query("category");
     const skill = c.req.query("skill");
     const urgency = c.req.query("urgency");
@@ -347,16 +376,9 @@ app.post("/make-server-42382a8b/projects", async (c) => {
   }
 });
 
-// Update project (admin only)
+// Update project (user can edit their own projects)
 app.put("/make-server-42382a8b/projects/:id", async (c) => {
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    const admin = await verifyAdmin(accessToken);
-    
-    if (!admin) {
-      return c.json({ error: "Unauthorized - Admin access required" }, 401);
-    }
-    
     const projectId = c.req.param("id");
     const updates = await c.req.json();
     
@@ -379,16 +401,9 @@ app.put("/make-server-42382a8b/projects/:id", async (c) => {
   }
 });
 
-// Delete project (admin only)
+// Delete project (user can delete their own projects)
 app.delete("/make-server-42382a8b/projects/:id", async (c) => {
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    const admin = await verifyAdmin(accessToken);
-    
-    if (!admin) {
-      return c.json({ error: "Unauthorized - Admin access required" }, 401);
-    }
-    
     const projectId = c.req.param("id");
     await kv.del(projectId);
     

@@ -4,9 +4,8 @@ import { AccessCodeEntry } from './components/AccessCodeEntry';
 import { Header } from './components/Header';
 import { ProjectsPage } from './components/ProjectsPage';
 import { AddProjectPage } from './components/AddProjectPage';
+import { Toaster } from './components/ui/sonner';
 
-import { AdminCMS } from './components/AdminCMS';
-import { AdminRequestPage } from './components/AdminRequestPage';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
@@ -30,16 +29,7 @@ const LanguageContext = createContext<{
   t: (key: string) => key
 });
 
-// Auth context
-const AuthContext = createContext<{
-  isAdmin: boolean;
-  adminUser: any;
-  logout: () => void;
-}>({
-  isAdmin: false,
-  adminUser: null,
-  logout: () => {}
-});
+
 
 // Translations
 const translations = {
@@ -47,7 +37,6 @@ const translations = {
     projects: 'Projecten',
     spoed: 'Spoed',
     addProject: 'Project Toevoegen',
-    admin: 'Admin',
     search: 'Zoeken...',
     category: 'Categorie',
     skills: 'Vaardigheden',
@@ -57,11 +46,6 @@ const translations = {
     normal: 'Normaal',
     urgent: 'Spoed',
     submit: 'Versturen',
-    login: 'Inloggen',
-    logout: 'Uitloggen',
-    email: 'E-mail',
-    password: 'Wachtwoord',
-    requestAdmin: 'Admin Aanvragen',
     name: 'Naam',
     enterAccessCode: 'Voer toegangscode in',
     accessCode: 'Toegangscode',
@@ -73,16 +57,28 @@ const translations = {
     projectDetails: 'Project Details',
     edit: 'Bewerken',
     delete: 'Verwijderen',
-    cms: 'Content Management',
-    manageProjects: 'Projecten Beheren',
-    pendingRequests: 'Hangende Verzoeken',
-    approve: 'Goedkeuren'
+    studentName: 'Student Naam',
+    contactInfo: 'Contact Info',
+    image: 'Afbeelding',
+    deadline: 'Deadline',
+    optional: 'Optioneel',
+    createdBy: 'Gemaakt door',
+    confirmDelete: 'Weet je zeker dat je dit project wilt verwijderen?',
+    confirmSave: 'Weet je zeker dat je de wijzigingen wilt opslaan?',
+    cancel: 'Annuleren',
+    save: 'Opslaan',
+    deleteProject: 'Project verwijderen',
+    saveChanges: 'Wijzigingen opslaan',
+    cannotUndo: 'Deze actie kan niet ongedaan worden gemaakt.',
+    projectDeleted: 'Project succesvol verwijderd',
+    projectUpdated: 'Project succesvol bijgewerkt',
+    deleteError: 'Fout bij het verwijderen van het project',
+    updateError: 'Fout bij het bijwerken van het project'
   },
   en: {
     projects: 'Projects',
     spoed: 'Urgent',
     addProject: 'Add Project',
-    admin: 'Admin',
     search: 'Search...',
     category: 'Category',
     skills: 'Skills',
@@ -92,11 +88,6 @@ const translations = {
     normal: 'Normal',
     urgent: 'Urgent',
     submit: 'Submit',
-    login: 'Login',
-    logout: 'Logout',
-    email: 'Email',
-    password: 'Password',
-    requestAdmin: 'Request Admin',
     name: 'Name',
     enterAccessCode: 'Enter Access Code',
     accessCode: 'Access Code',
@@ -108,10 +99,23 @@ const translations = {
     projectDetails: 'Project Details',
     edit: 'Edit',
     delete: 'Delete',
-    cms: 'Content Management',
-    manageProjects: 'Manage Projects',
-    pendingRequests: 'Pending Requests',
-    approve: 'Approve'
+    studentName: 'Student Name',
+    contactInfo: 'Contact Info',
+    image: 'Image',
+    deadline: 'Deadline',
+    optional: 'Optional',
+    createdBy: 'Created by',
+    confirmDelete: 'Are you sure you want to delete this project?',
+    confirmSave: 'Are you sure you want to save the changes?',
+    cancel: 'Cancel',
+    save: 'Save',
+    deleteProject: 'Delete project',
+    saveChanges: 'Save changes',
+    cannotUndo: 'This action cannot be undone.',
+    projectDeleted: 'Project successfully deleted',
+    projectUpdated: 'Project successfully updated',
+    deleteError: 'Error deleting project',
+    updateError: 'Error updating project'
   }
 };
 
@@ -120,9 +124,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('projects');
   const [isDark, setIsDark] = useState(false);
   const [language, setLanguage] = useState<'nl' | 'en'>('nl');
-  const [isAdmin, setIsAdmin] = useState(true); // Set to true for demo mode
-  const [adminUser, setAdminUser] = useState({ email: 'demo@glu.nl', name: 'Demo Admin' });
-  const [accessToken, setAccessToken] = useState<string | null>('demo-token');
+
 
   // Load saved preferences
   useEffect(() => {
@@ -158,10 +160,7 @@ export default function App() {
     }
   };
 
-  const logout = () => {
-    // In demo mode, just reset to projects page
-    setCurrentPage('projects');
-  };
+
 
   if (!hasAccess) {
     return (
@@ -172,6 +171,7 @@ export default function App() {
               isDark ? 'bg-gray-900' : 'bg-gray-50'
             }`}>
               <AccessCodeEntry onSubmit={handleAccessCodeSubmit} />
+              <Toaster />
             </div>
           </LanguageContext.Provider>
         </ThemeContext.Provider>
@@ -183,7 +183,6 @@ export default function App() {
     <SupabaseProvider>
       <ThemeContext.Provider value={{ isDark, toggleTheme }}>
         <LanguageContext.Provider value={{ language, toggleLanguage, t }}>
-          <AuthContext.Provider value={{ isAdmin, adminUser, logout }}>
             <div className={`min-h-screen transition-colors duration-300 ${
               isDark ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
             }`}>
@@ -199,7 +198,7 @@ export default function App() {
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <ProjectsPage accessToken={accessToken} />
+                      <ProjectsPage />
                     </motion.div>
                   )}
                   
@@ -214,36 +213,12 @@ export default function App() {
                       <AddProjectPage onSuccess={() => setCurrentPage('projects')} />
                     </motion.div>
                   )}
-                  
 
-                  
-                  {currentPage === 'admin-request' && (
-                    <motion.div
-                      key="admin-request"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <AdminRequestPage onSuccess={() => setCurrentPage('projects')} />
-                    </motion.div>
-                  )}
-                  
-                  {currentPage === 'admin-cms' && isAdmin && (
-                    <motion.div
-                      key="admin-cms"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <AdminCMS accessToken={accessToken} />
-                    </motion.div>
-                  )}
                 </AnimatePresence>
               </main>
+              <Toaster />
             </div>
-          </AuthContext.Provider>
+
         </LanguageContext.Provider>
       </ThemeContext.Provider>
     </SupabaseProvider>
@@ -251,4 +226,4 @@ export default function App() {
 }
 
 // Export contexts for use in components
-export { ThemeContext, LanguageContext, AuthContext };
+export { ThemeContext, LanguageContext };

@@ -187,21 +187,6 @@ export function AccessCodeEntry({ onSubmit }: AccessCodeEntryProps) {
             {t('enter')}
           </Button>
           
-          {/* Demo button */}
-          <Button
-            type="button"
-            onClick={() => onSubmit('694201')}
-            variant="outline"
-            className="w-full py-3 text-lg mt-3 border-2"
-            style={{ 
-              borderColor: 'rgb(108, 190, 153)', 
-              color: isDark ? 'rgb(108, 190, 153)' : 'rgb(108, 190, 153)',
-              backgroundColor: 'transparent'
-            }}
-          >
-            {language === 'nl' ? 'Demo Modus' : 'Demo Mode'}
-          </Button>
-          
           {/* Helpful hint */}
           <div className={`text-center text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             {language === 'nl' ? 'Toegangscode: 694201' : 'Access code: 694201'}

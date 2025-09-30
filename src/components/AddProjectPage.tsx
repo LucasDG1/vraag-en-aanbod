@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'motion/react';
-import { Plus, X, User, Mail, FileText, Tag, Clock, Zap } from 'lucide-react';
+import { Plus, X, User, Mail, FileText, Tag, Clock, Zap, Image, Calendar } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -21,7 +21,9 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
     skills: [] as string[],
     urgency: 'normal' as 'normal' | 'urgent',
     studentName: '',
-    contactInfo: ''
+    contactInfo: '',
+    imageUrl: '',
+    deadline: ''
   });
   
   const [categories, setCategories] = useState<string[]>([]);
@@ -93,6 +95,9 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
 
     try {
       setSubmitting(true);
+      
+      // Save current user name to localStorage for ownership tracking
+      localStorage.setItem('glu-current-user', formData.studentName);
       
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/projects`,
@@ -325,6 +330,42 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
                 )}
               </motion.div>
 
+              {/* Optional Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.6 }}
+                >
+                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
+                    <Image className="h-4 w-4" />
+                    {t('image')} ({t('optional')})
+                  </label>
+                  <Input
+                    placeholder="URL van een afbeelding..."
+                    value={formData.imageUrl}
+                    onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                  />
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.7 }}
+                >
+                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
+                    <Calendar className="h-4 w-4" />
+                    {t('deadline')} ({t('optional')})
+                  </label>
+                  <Input
+                    type="date"
+                    value={formData.deadline}
+                    onChange={(e) => setFormData({...formData, deadline: e.target.value})}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </motion.div>
+              </div>
+
               {/* Student Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <motion.div
@@ -334,7 +375,7 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
                 >
                   <label className="flex items-center gap-2 text-sm font-medium mb-2">
                     <User className="h-4 w-4" />
-                    Jouw Naam *
+                    {t('studentName')} *
                   </label>
                   <Input
                     placeholder="Voor- en achternaam"
@@ -351,7 +392,7 @@ export function AddProjectPage({ onSuccess }: AddProjectPageProps) {
                 >
                   <label className="flex items-center gap-2 text-sm font-medium mb-2">
                     <Mail className="h-4 w-4" />
-                    Contact Info *
+                    {t('contactInfo')} *
                   </label>
                   <Input
                     placeholder="E-mail of telefoonnummer"

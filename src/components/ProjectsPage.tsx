@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, Clock, User, Tag, Trash2, Edit } from 'lucide-react';
+import { Search, Filter, Clock, User, Tag, Trash2, Edit, Image, Calendar } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
-import { LanguageContext, ThemeContext, AuthContext } from '../App';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { LanguageContext, ThemeContext } from '../App';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { toast } from "sonner@2.0.3";
 
 interface Project {
   id: string;
@@ -19,14 +21,12 @@ interface Project {
   urgency: 'normal' | 'urgent';
   studentName: string;
   contactInfo: string;
+  imageUrl?: string;
+  deadline?: string;
   createdAt: string;
 }
 
-interface ProjectsPageProps {
-  accessToken: string | null;
-}
-
-export function ProjectsPage({ accessToken }: ProjectsPageProps) {
+export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -39,10 +39,11 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editForm, setEditForm] = useState<Partial<Project>>({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Project | null>(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const { isDark } = useContext(ThemeContext);
-  const { t } = useContext(LanguageContext);
-  const { isAdmin } = useContext(AuthContext);
+  const { t, language } = useContext(LanguageContext);
 
   useEffect(() => {
     fetchData();
@@ -121,28 +122,31 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
     setFilteredProjects(filtered);
   };
 
-  const handleDeleteProject = async (projectId: string) => {
-    if (!isAdmin || !accessToken) return;
-
+  const handleDeleteProject = async (projectToDelete: Project) => {
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/projects/${projectId}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-42382a8b/projects/${projectToDelete.id}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${accessToken}` }
+          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
         }
       );
 
       if (response.ok) {
+        setShowDeleteConfirm(null);
+        toast.success(t('projectDeleted'));
         await fetchData();
+      } else {
+        toast.error(t('deleteError'));
       }
     } catch (error) {
       console.error('Error deleting project:', error);
+      toast.error(t('deleteError'));
     }
   };
 
-  const handleEditProject = async () => {
-    if (!isAdmin || !accessToken || !editingProject) return;
+  const handleSaveProject = async () => {
+    if (!editingProject) return;
 
     try {
       const response = await fetch(
@@ -151,7 +155,7 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
+            'Authorization': `Bearer ${publicAnonKey}`
           },
           body: JSON.stringify(editForm)
         }
@@ -160,10 +164,15 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
       if (response.ok) {
         setEditingProject(null);
         setEditForm({});
+        setShowSaveConfirm(false);
+        toast.success(t('projectUpdated'));
         await fetchData();
+      } else {
+        toast.error(t('updateError'));
       }
     } catch (error) {
       console.error('Error updating project:', error);
+      toast.error(t('updateError'));
     }
   };
 
@@ -297,33 +306,31 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
                           </Badge>
                         </div>
                       </div>
-                      {isAdmin && (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setEditForm(project);
-                            }}
-                            className="h-8 w-8"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteProject(project.id);
-                            }}
-                            className="h-8 w-8 text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProject(project);
+                            setEditForm(project);
+                          }}
+                          className="h-8 w-8"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDeleteConfirm(project);
+                          }}
+                          className="h-8 w-8 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent onClick={() => setSelectedProject(project)}>
@@ -416,8 +423,28 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
                   </div>
                 </div>
                 
+                {selectedProject.imageUrl && (
+                  <div>
+                    <h4 className="font-medium mb-2">{t('image')}</h4>
+                    <img 
+                      src={selectedProject.imageUrl} 
+                      alt={selectedProject.title}
+                      className="max-w-full h-48 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
+                
+                {selectedProject.deadline && (
+                  <div>
+                    <h4 className="font-medium mb-1">{t('deadline')}</h4>
+                    <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {formatDate(selectedProject.deadline)}
+                    </p>
+                  </div>
+                )}
+                
                 <div>
-                  <h4 className="font-medium mb-1">Aangemaakt</h4>
+                  <h4 className="font-medium mb-1">{t('createdBy')}</h4>
                   <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                     {formatDate(selectedProject.createdAt)}
                   </p>
@@ -492,23 +519,112 @@ export function ProjectsPage({ accessToken }: ProjectsPageProps) {
                     </Select>
                   </div>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('image')} ({t('optional')})</label>
+                  <Input
+                    type="url"
+                    placeholder="https://"
+                    value={editForm.imageUrl || ''}
+                    onChange={(e) => setEditForm({...editForm, imageUrl: e.target.value})}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('deadline')} ({t('optional')})</label>
+                  <Input
+                    type="date"
+                    value={editForm.deadline ? editForm.deadline.split('T')[0] : ''}
+                    onChange={(e) => setEditForm({...editForm, deadline: e.target.value ? new Date(e.target.value).toISOString() : ''})}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{t('studentName')}</label>
+                    <Input
+                      value={editForm.studentName || ''}
+                      onChange={(e) => setEditForm({...editForm, studentName: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{t('contactInfo')}</label>
+                    <Input
+                      value={editForm.contactInfo || ''}
+                      onChange={(e) => setEditForm({...editForm, contactInfo: e.target.value})}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('skills')}</label>
+                  <Input
+                    placeholder={language === 'nl' ? "Komma gescheiden (bijv. JavaScript, React, Design)" : "Comma separated (e.g. JavaScript, React, Design)"}
+                    value={editForm.skills ? editForm.skills.join(', ') : ''}
+                    onChange={(e) => setEditForm({...editForm, skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
+                  />
+                </div>
               </div>
               
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditingProject(null)}>
-                  Annuleren
+                  {t('cancel')}
                 </Button>
                 <Button 
-                  onClick={handleEditProject}
+                  onClick={() => setShowSaveConfirm(true)}
                   style={{ backgroundColor: 'rgb(108, 190, 153)' }}
                 >
-                  Opslaan
+                  {t('save')}
                 </Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteProject')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmDelete')} "{showDeleteConfirm?.title}"? {t('cannotUndo')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => showDeleteConfirm && handleDeleteProject(showDeleteConfirm)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Save Confirmation Dialog */}
+      <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('saveChanges')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmSave')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSaveProject}
+              style={{ backgroundColor: 'rgb(108, 190, 153)' }}
+              className="hover:opacity-90"
+            >
+              {t('save')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

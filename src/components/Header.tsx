@@ -1,8 +1,8 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
-import { Sun, Moon, Globe, Plus, Users, Settings } from 'lucide-react';
+import { Sun, Moon, Globe, Plus } from 'lucide-react';
 import { Button } from './ui/button';
-import { LanguageContext, ThemeContext, AuthContext } from '../App';
+import { LanguageContext, ThemeContext } from '../App';
 
 interface HeaderProps {
   currentPage: string;
@@ -12,7 +12,6 @@ interface HeaderProps {
 export function Header({ currentPage, onPageChange }: HeaderProps) {
   const { isDark, toggleTheme } = useContext(ThemeContext);
   const { language, toggleLanguage, t } = useContext(LanguageContext);
-  const { isAdmin, adminUser } = useContext(AuthContext);
 
   const navigationItems = [
     { key: 'projects', label: t('projects'), icon: null },
@@ -81,36 +80,6 @@ export function Header({ currentPage, onPageChange }: HeaderProps) {
 
           {/* Right section - Controls */}
           <div className="flex items-center space-x-2">
-            {/* Admin section - always available in demo mode */}
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={currentPage === 'admin-cms' ? "default" : "ghost"}
-                onClick={() => onPageChange('admin-cms')}
-                className={`flex items-center gap-2 ${
-                  currentPage === 'admin-cms'
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : isDark 
-                      ? 'text-gray-300 hover:text-white hover:bg-gray-800' 
-                      : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-                style={currentPage === 'admin-cms' ? { backgroundColor: 'rgb(108, 190, 153)' } : {}}
-              >
-                <Settings className="h-4 w-4" />
-                {t('cms')}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => onPageChange('admin-request')}
-                className={`flex items-center gap-2 ${
-                  isDark 
-                    ? 'text-gray-300 hover:text-white hover:bg-gray-800' 
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                {t('requestAdmin')}
-              </Button>
-            </div>
 
             {/* Theme toggle */}
             <Button
